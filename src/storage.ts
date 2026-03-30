@@ -213,18 +213,64 @@ export async function saveState(state: AppState) {
 }
 
 export function ensureWeek(state: AppState, weekLabel: string, weekOffset = 0): AppState {
-  if (state.weeks[weekLabel]) {
-    return state
-  }
-
   const n = state.planCycle.length
   const cycleIdx = n > 0 ? (((weekOffset + state.cyclePhase) % n) + n) % n : 0
+
+  if (!state.weeks[weekLabel]) {
+    return {
+      ...state,
+      weeks: {
+        ...state.weeks,
+        [weekLabel]: createWeekState(state.program, weekLabel, state.planCycle[cycleIdx]),
+      },
+    }
+  }
+
+  // Refresh pending exercises from plan cycle overrides
+  const planWeek = state.planCycle[cycleIdx]
+  if (!planWeek) return state
+
+  const week = state.weeks[weekLabel]
+  let changed = false
+  const nextDays = { ...week.days }
+
+  for (const day of state.program) {
+    const dayOverrides = planWeek.days[day.key]
+    if (!dayOverrides) continue
+    const currentDayData = nextDays[day.key]
+    if (!currentDayData) continue
+
+    let dayChanged = false
+    const nextDayData = { ...currentDayData }
+
+    for (const ex of day.exercises) {
+      const override = dayOverrides[ex.id]
+      if (!override) continue
+      const current = nextDayData[ex.id]
+      if (!current || current.status !== 'pending') continue
+
+      const newWeight = override.weight ?? ex.defaultWeight?.toString() ?? ''
+      const newSets = override.sets ?? ex.sets
+
+      if (current.weight !== newWeight || current.sets !== newSets) {
+        nextDayData[ex.id] = { ...current, weight: newWeight, sets: newSets }
+        dayChanged = true
+      }
+    }
+
+    if (dayChanged) {
+      nextDays[day.key] = nextDayData
+      changed = true
+    }
+  }
+
+  if (!changed) return state
 
   return {
     ...state,
     weeks: {
       ...state.weeks,
-      [weekLabel]: createWeekState(state.program, weekLabel, state.planCycle[cycleIdx]),
+      [weekLabel]: { ...week, days: nextDays as WeekState['days'] },
     },
   }
 }
