@@ -53,7 +53,7 @@ function App() {
   const weekLabel = getWeekLabel(state.selectedWeekOffset)
   const cycleIndex = (((state.selectedWeekOffset + state.cyclePhase) % state.planCycle.length) + state.planCycle.length) % state.planCycle.length
 
-  useEffect(() => { setState((c) => ensureWeek(c, weekLabel, c.selectedWeekOffset)) }, [weekLabel])
+  useEffect(() => { setState((c) => ensureWeek(c, weekLabel, c.selectedWeekOffset)) }, [weekLabel, state.planCycle, state.cyclePhase])
 
   useEffect(() => {
     if (!isHydrated || Object.keys(state.weeks).length === 0) return
